@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { login } from './actions';
 import { Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import Link from 'next/link';
 
 export function LoginForm({
   searchParams,
@@ -66,9 +67,17 @@ export function LoginForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="password" className="text-sm font-medium">
-          Password
-        </Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="password" size-10 className="text-sm font-medium">
+            Password
+          </Label>
+          <Link 
+            href="/auth/forgot-password" 
+            className="text-xs font-medium text-primary hover:underline"
+          >
+            Forgot password?
+          </Link>
+        </div>
         <div className="relative">
           <Input
             id="password"

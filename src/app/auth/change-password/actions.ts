@@ -2,6 +2,7 @@
 
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { sendPasswordChangedNotification } from '@/lib/mail';
 
 export async function updatePassword(formData: FormData) {
   const supabase = await createClient();
@@ -25,6 +26,12 @@ export async function updatePassword(formData: FormData) {
 
   if (metadataError) {
     return { error: metadataError.message };
+  }
+
+  // Send security notification via Resend
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user?.email) {
+    await sendPasswordChangedNotification(user.email);
   }
 
   revalidatePath('/', 'layout');
