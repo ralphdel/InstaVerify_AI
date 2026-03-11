@@ -67,17 +67,9 @@ export function LoginForm({
       </div>
 
       <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <Label htmlFor="password" size-10 className="text-sm font-medium">
-            Password
-          </Label>
-          <Link 
-            href="/auth/forgot-password" 
-            className="text-xs font-medium text-primary hover:underline"
-          >
-            Forgot password?
-          </Link>
-        </div>
+        <Label htmlFor="password" className="text-sm font-medium">
+          Password
+        </Label>
         <div className="relative">
           <Input
             id="password"
@@ -100,9 +92,17 @@ export function LoginForm({
             )}
           </button>
         </div>
-        <p className="text-[11px] text-muted-foreground">
-          Must be at least 8 characters.
-        </p>
+        <div className="flex items-center justify-between">
+          <p className="text-[11px] text-muted-foreground">
+            Must be at least 8 characters.
+          </p>
+          <Link 
+            href="/auth/forgot-password" 
+            className="text-xs font-bold text-primary hover:underline"
+          >
+            Forgot password?
+          </Link>
+        </div>
       </div>
 
       <Button
