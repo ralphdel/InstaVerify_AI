@@ -32,6 +32,11 @@ export default async function ReportPage(props: { params: Promise<{ id: string }
               score={98}
               signals={["Seal alignment verified", "Registry match confirmed"]}
               time={"14.2 seconds"}
+              details={{
+                forgery_detected: false,
+                name_match: true,
+                registry_verified: true
+              }}
             />
          </div>
        );
@@ -60,6 +65,7 @@ export default async function ReportPage(props: { params: Promise<{ id: string }
         score={submission.confidence_score}
         signals={submission.signals}
         time={processingTime}
+        details={submission.verification_details}
       />
     </div>
   );

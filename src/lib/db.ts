@@ -19,6 +19,7 @@ export async function saveSubmission(data: {
   signals: string[];
   verified_by?: string;
   verified_by_email?: string;
+  verification_details?: any;
 }) {
   const id = `INV-${Math.floor(Math.random() * 90000) + 10000}`;
   const submission = {
@@ -32,6 +33,7 @@ export async function saveSubmission(data: {
     upload_time: new Date().toISOString(),
     verified_by: data.verified_by,
     verified_by_email: data.verified_by_email,
+    verification_details: data.verification_details,
   };
 
   if (supabase) {

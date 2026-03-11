@@ -14,29 +14,35 @@ export default function UploadPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [submissionData, setSubmissionData] = useState<string | null>(null);
 
-  const handleUpload = async (file: File, merchantName: string, merchantAddress: string) => {
+  const handleUpload = async (cacFile: File | null, utilityFile: File | null, merchantName: string, merchantAddress: string) => {
     setIsProcessing(true);
     
-    // Simulate AI verification
-    const { score, signals, anomalies } = simulateVerification(file.name);
-    const status = calculateStatus(score);
+    // Comprehensive Verification Logic
+    const verificationResults = await simulateVerification({
+      cacFile: cacFile?.name || null,
+      utilityFile: utilityFile?.name || null,
+      merchantName,
+      merchantAddress
+    });
+
+    const status = calculateStatus(verificationResults.score);
     
     // Get current user for attribution
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    // Save to DB (mock or actual Supabase)
+    // Save to DB with enhanced metadata
     const record = await saveSubmission({
       merchantName,
       merchantAddress,
-      documentType: file.name.toLowerCase().includes("cac") ? "CAC Certificate" : "Utility Bill",
+      documentType: cacFile && utilityFile ? "Combined (CAC + Utility)" : cacFile ? "CAC Certificate" : "Utility Bill",
       status, 
-      score,
-      signals: [...signals, ...anomalies.map(a => `Anomaly: ${a}`)],
+      score: verificationResults.score,
+      signals: verificationResults.signals,
+      verification_details: verificationResults.details, // Stores granular check results
       verified_by: user?.id,
       verified_by_email: user?.email
     });
-
 
     setSubmissionData(record.id);
   };
