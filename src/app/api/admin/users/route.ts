@@ -87,16 +87,20 @@ export async function POST(request: Request) {
       type: 'magiclink',
       email: email,
       options: {
-        // Pointing directly to the change password page so the client-side Supabase SDK can grab the hash
-        redirectTo: `${request.headers.get('origin') || 'http://localhost:3000'}/auth/change-password`,
+        // Point to the server callback to establish the session, then redirect to the change password form
+        redirectTo: `${request.headers.get('origin') || 'http://localhost:3000'}/auth/callback?next=/auth/change-password`,
       },
     });
 
     // Step 3: Send the email via Brevo SMTP
-    if (linkData?.properties?.action_link) {
+    if (linkData?.properties?.hashed_token) {
+      const baseUrl = request.headers.get('origin') || 'http://localhost:3000';
+      // Construct a custom link that hits the Next.js server callback directly with the token hash
+      const customLink = `${baseUrl}/auth/callback?token_hash=${linkData.properties.hashed_token}&type=magiclink&next=/auth/change-password`;
+      
       // Import dynamically to avoid top-level await/env issues
       const { sendAdminInviteViaSMTP } = await import('@/lib/brevo-mail');
-      const emailResult = await sendAdminInviteViaSMTP(email, linkData.properties.action_link);
+      const emailResult = await sendAdminInviteViaSMTP(email, customLink);
       
       if (!emailResult.success) {
         console.error('Failed to send invite email:', emailResult.error);

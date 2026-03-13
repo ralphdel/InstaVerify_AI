@@ -22,8 +22,8 @@ export async function requestPasswordReset(formData: FormData) {
       type: 'recovery',
       email: email,
       options: {
-        // Point directly to the client page so the Supabase browser client can grab the token hash
-        redirectTo: `${baseUrl}/auth/reset-password`,
+        // Point to the server callback to establish the session, then redirect to the reset form
+        redirectTo: `${baseUrl}/auth/callback?next=/auth/reset-password`,
       },
     });
 
@@ -32,12 +32,16 @@ export async function requestPasswordReset(formData: FormData) {
       return { error: error.message };
     }
 
-    if (!data?.properties?.action_link) {
+    if (!data?.properties?.hashed_token) {
       return { error: 'Failed to generate reset link. Please try again.' };
     }
 
-    // Send directly via Brevo SMTP — works for ANY recipient
-    const result = await sendPasswordResetViaSMTP(email, data.properties.action_link);
+    // Construct a custom link that hits the Next.js server callback directly with the token hash
+    // This entirely avoids unstable client-side URL hash Fragment parsing
+    const customLink = `${baseUrl}/auth/callback?token_hash=${data.properties.hashed_token}&type=recovery&next=/auth/reset-password`;
+
+    // Send directly via Brevo SMTP
+    const result = await sendPasswordResetViaSMTP(email, customLink);
 
     if (!result.success) {
       console.error(`[Auth Error] SMTP send failed:`, result.error);

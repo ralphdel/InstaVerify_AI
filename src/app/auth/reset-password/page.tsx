@@ -31,20 +31,13 @@ export default function ResetPasswordPage() {
     setIsLoading(true);
     setError(null);
     try {
-      // Use browser client to automatically parse the token hash from the URL
-      const { createClient } = await import('@/utils/supabase/client');
-      const supabase = createClient();
+      const { resetPassword } = await import('./actions');
+      const result = await resetPassword(formData);
       
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: password,
-      });
-
-      if (updateError) {
-        setError(updateError.message);
+      if (result?.error) {
+        setError(result.error);
         setIsLoading(false);
       } else {
-        // Now trigger the notification action
-        await notifyPasswordChanged();
         setSuccess(true);
         setIsLoading(false);
       }
@@ -93,7 +86,7 @@ export default function ResetPasswordPage() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="password" size-10 className="text-sm font-medium">
+              <Label htmlFor="password" className="text-sm font-medium">
                 New Password
               </Label>
               <div className="relative">
@@ -116,7 +109,7 @@ export default function ResetPasswordPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword" size-10 className="text-sm font-medium">
+              <Label htmlFor="confirmPassword" className="text-sm font-medium">
                 Confirm New Password
               </Label>
               <Input

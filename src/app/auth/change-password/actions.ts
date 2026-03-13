@@ -4,18 +4,20 @@ import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { sendPasswordChangedNotification } from '@/lib/mail';
 
-export async function notifyPasswordChanged() {
+export async function updatePassword(formData: FormData) {
   const supabase = await createClient();
+  const password = formData.get('newPassword') as string;
 
-  // Update user metadata to clear the must_change_password flag
-  const { error: metadataError } = await supabase.auth.updateUser({
+  // Update the password AND clear the must_change_password flag in one call
+  const { error } = await supabase.auth.updateUser({
+    password: password,
     data: {
       must_change_password: false
     }
   });
 
-  if (metadataError) {
-    return { error: metadataError.message };
+  if (error) {
+    return { error: error.message };
   }
 
   // Send security notification via Resend
