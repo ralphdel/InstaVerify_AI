@@ -16,6 +16,11 @@ export default function ForgotPasswordPage() {
   async function handleSubmit(formData: FormData) {
     setIsLoading(true);
     setError(null);
+    
+    // Pass the current origin to the server action to ensure the redirect URL is always accurate
+    const origin = window.location.origin;
+    formData.append('origin', origin);
+
     try {
       const result = await requestPasswordReset(formData);
       if (result?.error) {
