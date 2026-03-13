@@ -22,7 +22,8 @@ export async function requestPasswordReset(formData: FormData) {
       type: 'recovery',
       email: email,
       options: {
-        redirectTo: `${baseUrl}/auth/callback?type=recovery`,
+        // Point directly to the client page so the Supabase browser client can grab the token hash
+        redirectTo: `${baseUrl}/auth/reset-password`,
       },
     });
 

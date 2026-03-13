@@ -63,29 +63,54 @@ export async function POST(request: Request) {
 
     const adminClient = createAdminClient();
     
-    // Using inviteUserByEmail is more robust as it handles the email sending
-    // through Supabase's managed infrastructure automatically.
-    const { data, error } = await adminClient.auth.admin.inviteUserByEmail(email, {
-      redirectTo: `${request.headers.get('origin') || 'http://localhost:3000'}/auth/callback`,
-      data: {
+    // Step 1: Create the user directly so we can force the must_change_password flag
+    const { data: userData, error: createError } = await adminClient.auth.admin.createUser({
+      email,
+      password: defaultPassword,
+      email_confirm: true,
+      user_metadata: {
         role: 'admin',
         must_change_password: true
       }
     });
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+    if (createError) {
+      return NextResponse.json({ error: createError.message }, { status: 400 });
     }
 
-    if (!data.user) {
+    if (!userData.user) {
       return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
+    }
+
+    // Step 2: Generate a magic link for their first login/invite
+    const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
+      type: 'magiclink',
+      email: email,
+      options: {
+        // Pointing directly to the change password page so the client-side Supabase SDK can grab the hash
+        redirectTo: `${request.headers.get('origin') || 'http://localhost:3000'}/auth/change-password`,
+      },
+    });
+
+    // Step 3: Send the email via Brevo SMTP
+    if (linkData?.properties?.action_link) {
+      // Import dynamically to avoid top-level await/env issues
+      const { sendAdminInviteViaSMTP } = await import('@/lib/brevo-mail');
+      const emailResult = await sendAdminInviteViaSMTP(email, linkData.properties.action_link);
+      
+      if (!emailResult.success) {
+        console.error('Failed to send invite email:', emailResult.error);
+        // We still return success for user creation, but log the email failure
+      }
+    } else {
+      console.error('Failed to generate invite link:', linkError);
     }
 
     return NextResponse.json({
       user: {
-        id: data.user.id,
-        email: data.user.email,
-        created_at: data.user.created_at,
+        id: userData.user.id,
+        email: userData.user.email,
+        created_at: userData.user.created_at,
       },
     });
   } catch (err) {
