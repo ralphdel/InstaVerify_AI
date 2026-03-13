@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, AlertCircle, CheckCircle, ShieldCheck } from 'lucide-react';
-import { updatePassword } from './actions';
+import { notifyPasswordChanged } from './actions';
 
 export default function ChangePasswordPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -28,12 +28,26 @@ export default function ChangePasswordPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const result = await updatePassword(formData);
-      if (result?.error) {
-        setError(result.error);
+      // Use browser client to automatically parse the token hash from the URL
+      const { createClient } = await import('@/utils/supabase/client');
+      const supabase = createClient();
+      
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (updateError) {
+        setError(updateError.message);
         setIsLoading(false);
       } else {
-        setSuccess(true);
+        // Now trigger the metadata update and notification action server-side
+        const result = await notifyPasswordChanged();
+        if (result?.error) {
+          setError(result.error);
+          setIsLoading(false);
+        } else {
+          setSuccess(true);
+        }
       }
     } catch {
       setError('Failed to update password. Please try again.');

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { resetPassword } from './actions';
+import { notifyPasswordChanged } from './actions';
 import { Loader2, AlertCircle, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -31,11 +31,20 @@ export default function ResetPasswordPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const result = await resetPassword(formData);
-      if (result?.error) {
-        setError(result.error);
+      // Use browser client to automatically parse the token hash from the URL
+      const { createClient } = await import('@/utils/supabase/client');
+      const supabase = createClient();
+      
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: password,
+      });
+
+      if (updateError) {
+        setError(updateError.message);
         setIsLoading(false);
       } else {
+        // Now trigger the notification action
+        await notifyPasswordChanged();
         setSuccess(true);
         setIsLoading(false);
       }
