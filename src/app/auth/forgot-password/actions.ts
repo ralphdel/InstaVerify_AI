@@ -5,15 +5,20 @@ import { createClient } from '@/utils/supabase/server';
 export async function requestPasswordReset(formData: FormData) {
   const email = formData.get('email') as string;
   const supabase = await createClient();
+  
+  // Use environment variable with a safe fallback to prevent undefined URLs
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const redirectTo = `${baseUrl}/auth/callback?type=recovery`;
 
-  // Reverting to Supabase's built-in email flow.
-  // This is more reliable if Resend domain verification is not yet complete.
-  // Supabase will handle the email sending using their own SMTP.
+  console.log(`[Auth] Attempting password reset for: ${email}`);
+  console.log(`[Auth] Redirect URL: ${redirectTo}`);
+
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?type=recovery`,
+    redirectTo: redirectTo,
   });
 
   if (error) {
+    console.error(`[Auth Error] Reset Password Failed:`, error.message);
     return { error: error.message };
   }
 
