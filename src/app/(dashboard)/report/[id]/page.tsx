@@ -7,42 +7,35 @@ import { Button } from "@/components/ui/button";
 
 export default async function ReportPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  const submission = await getSubmission(params.id);
+  
+  // Try fetching from DB
+  let submission = await getSubmission(params.id);
 
-  if (!submission) {
-    // If it's a mock row from the dashboard table and not actually in our mock DB state (which happens on refresh)
-    // We can fallback or just call notFound()
-    // For MVP robustness when directly navigating from dashboard mock data:
-    if (params.id.startsWith("INV-")) {
-       return (
-         <div className="space-y-6 max-w-4xl mx-auto">
-           <div className="flex items-center gap-4 mb-8">
-             <Link href="/dashboard">
-               <Button variant="outline" size="icon">
-                 <ArrowLeft className="h-4 w-4" />
-               </Button>
-             </Link>
-             <div>
-               <h2 className="text-2xl font-bold tracking-tight">Verification Report</h2>
-               <p className="text-muted-foreground">ID: {params.id} • Sample Mock Data</p>
-             </div>
-           </div>
-           <VerificationResult 
-              status={"VERIFIED"}
-              score={98}
-              signals={["Seal alignment verified", "Registry match confirmed"]}
-              time={"14.2 seconds"}
-              details={{
-                forgery_detected: false,
-                name_match: true,
-                registry_verified: true
-              }}
-            />
-         </div>
-       );
-    }
-    notFound();
+  // If not found but looks like a valid INV- ID, the record may not have saved yet
+  if (!submission && params.id.startsWith("INV-")) {
+    return (
+      <div className="space-y-6 max-w-4xl mx-auto">
+        <div className="flex items-center gap-4 mb-8">
+          <Link href="/dashboard">
+            <Button variant="outline" size="icon"><ArrowLeft className="h-4 w-4" /></Button>
+          </Link>
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">Verification Report</h2>
+            <p className="text-muted-foreground">ID: {params.id} — Report not found. It may still be processing.</p>
+          </div>
+        </div>
+        <div className="text-center py-16 text-muted-foreground">
+          <p className="text-lg font-semibold">Report not found</p>
+          <p className="text-sm mt-2">This report may not have saved correctly. Please try submitting again or check the dashboard.</p>
+          <Link href="/upload" className="mt-6 inline-block">
+            <Button>Submit a new document</Button>
+          </Link>
+        </div>
+      </div>
+    );
   }
+
+  if (!submission) notFound();
 
   const processingTime = (Math.random() * 4 + 12).toFixed(1) + " seconds";
 
@@ -50,9 +43,7 @@ export default async function ReportPage(props: { params: Promise<{ id: string }
     <div className="space-y-6 max-w-4xl mx-auto">
       <div className="flex items-center gap-4 mb-8">
         <Link href="/dashboard">
-          <Button variant="outline" size="icon">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+          <Button variant="outline" size="icon"><ArrowLeft className="h-4 w-4" /></Button>
         </Link>
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Verification Report</h2>
@@ -60,7 +51,11 @@ export default async function ReportPage(props: { params: Promise<{ id: string }
         </div>
       </div>
 
-      <VerificationResult 
+      <VerificationResult
+        id={submission.id}
+        merchantName={submission.merchant_name}
+        merchantAddress={submission.merchant_address}
+        documentType={submission.document_type}
         status={submission.status}
         score={submission.confidence_score}
         signals={submission.signals}
