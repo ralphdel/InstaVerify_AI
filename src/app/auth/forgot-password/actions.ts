@@ -1,31 +1,21 @@
 'use server';
 
-import { createAdminClient } from '@/utils/supabase/admin';
-import { sendPasswordResetEmail } from '@/lib/mail';
+import { createClient } from '@/utils/supabase/server';
 
 export async function requestPasswordReset(formData: FormData) {
   const email = formData.get('email') as string;
-  const supabaseAdmin = createAdminClient();
+  const supabase = await createClient();
 
-  // Generate a recovery link manually using the Admin client
-  // This allows us to send the email ourselves via Resend
-  const { data, error } = await supabaseAdmin.auth.admin.generateLink({
-    type: 'recovery',
-    email: email,
-    options: {
-      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password`,
-    },
+  // Reverting to Supabase's built-in email flow.
+  // This is more reliable if Resend domain verification is not yet complete.
+  // Supabase will handle the email sending using their own SMTP.
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?type=recovery`,
   });
 
   if (error) {
     return { error: error.message };
   }
 
-  if (data?.properties?.action_link) {
-    // Send the email manually via Resend
-    await sendPasswordResetEmail(email, data.properties.action_link);
-    return { success: true };
-  }
-
-  return { error: 'Failed to generate reset link.' };
+  return { success: true };
 }
