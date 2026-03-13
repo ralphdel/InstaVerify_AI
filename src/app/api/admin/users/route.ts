@@ -88,14 +88,6 @@ export async function POST(request: Request) {
         created_at: data.user.created_at,
       },
     });
-
-    return NextResponse.json({
-      user: {
-        id: data.user.id,
-        email: data.user.email,
-        created_at: data.user.created_at,
-      },
-    });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Internal server error' },
