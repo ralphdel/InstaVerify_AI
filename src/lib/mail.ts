@@ -1,7 +1,5 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 export async function sendEmail({
   to,
   subject,
@@ -11,14 +9,19 @@ export async function sendEmail({
   subject: string;
   html: string;
 }) {
-  if (!process.env.RESEND_API_KEY) {
-    console.warn('RESEND_API_KEY is not set. Email not sent.');
-    console.log('--- Mock Email ---');
+  const apiKey = process.env.RESEND_API_KEY;
+
+  if (!apiKey) {
+    console.warn('⚠️ RESEND_API_KEY is not set. Email not sent.');
+    console.log('--- [MOCKED EMAIL] ---');
     console.log('To:', to);
     console.log('Subject:', subject);
-    console.log('Body:', html);
+    console.log('---------------------');
     return { success: true, mock: true };
   }
+
+  console.log(`📧 Sending REAL email to ${to} via Resend... (Key: ${apiKey.substring(0, 5)}***)`);
+  const resend = new Resend(apiKey);
 
   try {
     const { data, error } = await resend.emails.send({
@@ -29,13 +32,14 @@ export async function sendEmail({
     });
 
     if (error) {
-      console.error('Resend Error:', error);
+      console.error('❌ Resend API Error:', JSON.stringify(error, null, 2));
       return { success: false, error };
     }
 
+    console.log('✅ Email sent successfully:', data?.id);
     return { success: true, data };
   } catch (error) {
-    console.error('Email Send Error:', error);
+    console.error('💥 Unexpected Email Error:', error);
     return { success: false, error };
   }
 }
