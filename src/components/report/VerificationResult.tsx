@@ -142,20 +142,20 @@ export function VerificationResult({
   return (
     <>
       <Card className="max-w-3xl mx-auto border-border shadow-sm" ref={printRef}>
-        <CardHeader className="flex flex-row items-center justify-between pb-8 border-b border-border">
-          <div>
-            <CardTitle className="text-2xl font-bold flex items-center gap-2">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 sm:gap-0 pb-8 border-b border-border">
+          <div className="flex-1">
+            <CardTitle className="text-2xl font-bold flex flex-wrap items-center gap-2">
               Verification Result
-              {isVerified && <Badge className="bg-success hover:bg-success/90 text-success-foreground ml-2 border-transparent">VERIFIED</Badge>}
-              {isConditional && <Badge className="bg-warning hover:bg-warning/90 text-warning-foreground ml-2 border-transparent">CONDITIONAL</Badge>}
-              {isFlagged && <Badge className="bg-destructive hover:bg-destructive/90 text-destructive-foreground ml-2 border-transparent">FLAGGED</Badge>}
+              {isVerified && <Badge className="bg-success hover:bg-success/90 text-success-foreground border-transparent">VERIFIED</Badge>}
+              {isConditional && <Badge className="bg-warning hover:bg-warning/90 text-warning-foreground border-transparent">CONDITIONAL</Badge>}
+              {isFlagged && <Badge className="bg-destructive hover:bg-destructive/90 text-destructive-foreground border-transparent">FLAGGED</Badge>}
             </CardTitle>
-            <CardDescription className="mt-2 text-base">
+            <CardDescription className="mt-2 text-base flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-0">
               {documentType && <span className="mr-3 text-muted-foreground">Type: <strong>{documentType}</strong></span>}
-              Analysis completed in <span className="font-medium text-foreground">{time}</span>
+              <span>Analysis completed in <span className="font-medium text-foreground">{time}</span></span>
             </CardDescription>
           </div>
-          <div className="text-right">
+          <div className="text-left sm:text-right">
             <div className="text-sm font-medium text-muted-foreground mb-1">Confidence Score</div>
             <div className={`text-4xl font-black tracking-tight ${
               isVerified ? "text-success" : isFlagged ? "text-destructive" : "text-warning"
@@ -283,14 +283,14 @@ export function VerificationResult({
             ))}
           </div>
 
-          <div className="flex gap-4">
-            <Button className="w-full sm:w-auto flex items-center gap-2" onClick={handleDownloadPdf}>
+          <div className="flex flex-col sm:flex-row gap-4">
+            <Button className="w-full sm:w-auto flex items-center justify-center gap-2 h-11" onClick={handleDownloadPdf}>
               <Download className="h-4 w-4" />
               Download Audit PDF
             </Button>
             <Button
               variant="outline"
-              className="w-full sm:w-auto flex items-center gap-2"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 h-11"
               onClick={() => {
                 const blob = new Blob([JSON.stringify(rawData, null, 2)], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);

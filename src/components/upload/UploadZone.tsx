@@ -59,7 +59,7 @@ export function UploadZone({ onUpload }: { onUpload: (cacFile: File | null, util
 
   return (
     <Card className="max-w-4xl mx-auto border-border shadow-sm">
-      <CardContent className="p-8">
+      <CardContent className="p-5 sm:p-8">
         <form onSubmit={handleSubmit} className="space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">

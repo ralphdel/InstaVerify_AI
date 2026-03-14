@@ -112,8 +112,8 @@ export function DashboardTable({ adminId }: { adminId?: string }) {
   }
 
   return (
-    <div className="rounded-md border border-border bg-card overflow-hidden">
-      <Table>
+    <div className="rounded-md border border-border bg-card overflow-x-auto">
+      <Table className="min-w-[800px]">
         <TableHeader className="bg-secondary/30">
           <TableRow className="hover:bg-transparent">
             <TableHead>Submission ID</TableHead>

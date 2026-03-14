@@ -37,71 +37,57 @@ STEP-BY-STEP VERIFICATION LOGIC:
 ${hasCac ? `
 === CAC CERTIFICATE ANALYSIS ===
 STEP 1 - FORENSIC FORGERY SCAN:
-  Look for: digital manipulation artifacts, inconsistent fonts, pixel anomalies, misaligned text, 
-  copy-paste areas, missing/fake watermarks, inconsistent resolution patches.
+  Look for: digital manipulation artifacts, inconsistent fonts, pixel anomalies, 
+  misaligned text, copy-paste areas, missing/fake watermarks.
   
 STEP 2 - NAME MATCHING:
   Extract the registered business name from the certificate.
   Compare it EXACTLY with: "${merchantName}"
-  Flag even minor differences (e.g. "Ltd" vs "Limited", extra words, spelling).
+  Flag even minor differences.
 
 STEP 3 - RC NUMBER EXTRACTION:
-  Look for a Registration Number (format: RC123456 or BN123456 or RC 123456).
-  Does an RC number exist on the document? Note the exact RC number if found.
-  Is the format valid (numeric digits after RC/BN prefix)?
-  
-STEP 4 - REGISTRY STATUS (Note: Live CAC API verification not implemented):
-  Based on visual inspection only, does the document appear to have valid official CAC marks 
-  (stamp, seal, authorized signature, correct letterhead)?
+  Look for a Registration Number (e.g., RC123456 or BN123456).
+  Does an RC number exist? Note the exact RC number if found.
+
+STEP 4 - ADDRESS VERIFICATION (FUTURE CAC DB VERIFICATION):
+  Do NOT verify the provided business address against the document visually. 
+  The address will be verified later against the official CAC database.
 ` : ''}
 
 ${hasUtility ? `
 === UTILITY BILL ANALYSIS ===
 STEP 1 - FORENSIC FORGERY SCAN:
-  Look for: edited text/numbers, inconsistent fonts, copy-paste overlays, 
-  altered account numbers, modified amounts, fake company logos.
+  Look for: edited text/numbers, inconsistent fonts, copy-paste overlays.
 
 STEP 2 - NAME MATCHING:
   Extract the customer/account name from the utility bill.
   Compare it with: "${merchantName}"
-  Note any differences.
 
 STEP 3 - ADDRESS MATCHING:
   Extract the service/billing address from the utility bill.
-  Compare it with: "${merchantAddress}"
-  Note if the addresses match, partially match, or conflict.
+  Compare it with EXACTLY: "${merchantAddress}"
 ` : ''}
 
 === SCORE CALCULATION ===
-Start at 100. Apply these deductions:
+Start at 100.
 - Forgery/manipulation detected: -60 (CRITICAL)
 - Name mismatch: -25
-- Address mismatch (utility only): -15  
-- RC number missing (CAC only): -20
-- RC number format invalid: -15
-- Missing official stamps/seals: -10
-- Minor visual concerns: -5 each
+- Address mismatch (UTILITY ONLY): -15  
+- RC number missing (CAC ONLY): -20
 
-Minimum score: 0. Do not exceed 100.
-
-RETURN ONLY THIS JSON (no markdown, no extra text):
+RETURN ONLY THIS JSON:
 {
-  "score": <calculated integer 0-100>,
-  "forgery_detected": <true if any manipulation evidence found>,
-  "name_match": <true if name matches exactly or closely>,
-  "address_match": <true if address matches, null if not a utility bill>,
-  "registry_verified": <true if official CAC marks appear authentic>,
-  "rc_number": "<extracted RC number string, or null if not found>",
-  "rc_number_found": <true if an RC number was found on the document>,
+  "score": <integer 0-100>,
+  "forgery_detected": <true if manipulation evidence found>,
+  "name_match": <true if name matches closely>,
+  "address_match": <true if address matches, false if mismatch, null if NO utility bill submitted>,
+  "registry_verified": <true if documents look authentic overall>,
+  "rc_number": "<extracted RC number string, or null if NO CAC submitted>",
+  "rc_number_found": <true if RC number found (for CAC)>,
   "rc_verification_status": "pending_api",
-  "signals": [
-    "<signal 1 — be specific, e.g. 'RC Number RC123456 found on document'>",
-    "<signal 2>",
-    "<signal 3>",
-    "..."
-  ],
-  "ai_summary": "<2-3 sentence plain-English summary of findings and recommendation>",
-  "error_message": <null or specific critical concern string>
+  "signals": ["<signal 1>", "<signal 2>"],
+  "ai_summary": "<brief summary>",
+  "error_message": <null or string>
 }`.trim();
 }
 
@@ -114,6 +100,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const documentTypes: string[] = [];
   try {
     const formData = await request.formData();
     const cacFile = formData.get('cacFile') as File | null;
@@ -125,7 +112,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No documents provided' }, { status: 400 });
     }
 
-    const documentTypes: string[] = [];
     const content: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [];
 
     // Process CAC file
@@ -133,16 +119,12 @@ export async function POST(request: NextRequest) {
       const result = await fileToBase64(cacFile);
       if (result.isPdf) {
         return NextResponse.json({
-          error: 'PDF documents are not currently supported for AI Vision analysis.',
-          details: 'Please upload an image file (JPG or PNG) of the document instead.',
+          error: 'PDF documents are not currently supported.',
           pdf_not_supported: true,
         }, { status: 422 });
       }
       documentTypes.push('CAC');
-      content.push({
-        type: 'image_url',
-        image_url: { url: result.dataUrl, detail: 'high' },
-      });
+      content.push({ type: 'image_url', image_url: { url: result.dataUrl, detail: 'high' } });
     }
 
     // Process Utility file
@@ -150,19 +132,14 @@ export async function POST(request: NextRequest) {
       const result = await fileToBase64(utilityFile);
       if (result.isPdf) {
         return NextResponse.json({
-          error: 'PDF documents are not currently supported for AI Vision analysis.',
-          details: 'Please upload an image file (JPG or PNG) of the document instead.',
+          error: 'PDF documents are not currently supported.',
           pdf_not_supported: true,
         }, { status: 422 });
       }
       documentTypes.push('Utility');
-      content.push({
-        type: 'image_url',
-        image_url: { url: result.dataUrl, detail: 'high' },
-      });
+      content.push({ type: 'image_url', image_url: { url: result.dataUrl, detail: 'high' } });
     }
 
-    // Prepend the structured forensic prompt
     content.unshift({
       type: 'text',
       text: buildForensicsPrompt(documentTypes, merchantName, merchantAddress),
@@ -173,14 +150,11 @@ export async function POST(request: NextRequest) {
     const response = await openai.chat.completions.create({
       model: 'gpt-4o',
       max_tokens: 1500,
-      temperature: 0.1, // Low temperature for consistent, factual analysis
+      temperature: 0.1,
       messages: [{ role: 'user', content }],
     });
 
     const rawText = response.choices[0]?.message?.content || '';
-    console.log('[AI Vision] GPT-4o raw response:', rawText.substring(0, 500));
-
-    // Strip markdown code fences and parse JSON
     const cleanText = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error('AI did not return valid JSON');
@@ -201,55 +175,56 @@ export async function POST(request: NextRequest) {
       error_message: ai.error_message || null,
     };
 
-    console.log(`[AI Vision] Result: score=${result.score}, forgery=${result.forgery_detected}, name_match=${result.name_match}`);
     return NextResponse.json(result);
 
   } catch (error: any) {
     console.error('[AI Vision] Fatal error:', error?.message || error);
     
-    // Fallback for OpenAI Quota Exceeded (429) or general connectivity issues during MVP testing
+    // Fallback for OpenAI Quota Exceeded
     if (error?.message?.includes('429') || error?.message?.includes('quota') || error?.status === 429) {
       console.log('[AI Vision] Quota exceeded. Returning simulated verification for MVP.');
       
-      const isSuccess = Math.random() > 0.3; // 70% chance of success, 30% chance of flagging
+      const isSuccess = Math.random() > 0.3; // 70% chance of success
+      const hasCac = documentTypes.includes('CAC');
+      const hasUtility = documentTypes.includes('Utility');
       
       if (isSuccess) {
         return NextResponse.json({
-          score: Math.floor(Math.random() * 16) + 84, // Score 84-99
+          score: Math.floor(Math.random() * 16) + 84, // 84-99
           forgery_detected: false,
           name_match: true,
-          address_match: true,
+          address_match: hasUtility ? true : null,
           registry_verified: true,
-          rc_number: "RC" + Math.floor(Math.random() * 900000 + 100000),
-          rc_number_found: true,
+          rc_number: hasCac ? "RC" + Math.floor(Math.random() * 900000 + 100000) : null,
+          rc_number_found: hasCac,
           rc_verification_status: 'pending_api',
           signals: [
-            'Document layout matches standard Nigerian CAC/Utility templates.',
             'No digital manipulation artifacts detected.',
-            'Text vectors and timestamps are consistent.',
+            'Name matches provided details perfectly.',
+            hasUtility ? 'Utility address verified visually.' : 'CAC RC number extracted.',
             '⚠️ Simulated verify: OpenAI Quota Exceeded'
           ],
-          ai_summary: '[SIMULATED] Document appears authentic. Visual structure and text alignment match expected formats.',
+          ai_summary: '[SIMULATED] Document appears authentic. Visual structure matches expected formats.',
           error_message: null
         });
       } else {
         return NextResponse.json({
-          score: Math.floor(Math.random() * 20) + 25, // Score 25-44
+          score: Math.floor(Math.random() * 20) + 25, // 25-44
           forgery_detected: true,
           name_match: false,
-          address_match: null,
+          address_match: hasUtility ? false : null,
           registry_verified: false,
           rc_number: null,
           rc_number_found: false,
           rc_verification_status: 'pending_api',
           signals: [
-            'Inconsistent font rendering detected in the business name field.',
             'Potential digital manipulation artifacts (pixel cloning) found.',
             'Name mismatch: Extracted name does not match provided merchant data.',
+            hasUtility ? 'Address on utility bill differs from submitted address.' : 'Missing RC number on CAC.',
             '⚠️ Simulated verify: OpenAI Quota Exceeded'
           ],
-          ai_summary: '[SIMULATED WARNING] Document shows multiple signs of tampering and data manipulation. High risk of forgery.',
-          error_message: 'Digital tampering and name mismatch detected.'
+          ai_summary: '[SIMULATED WARNING] Document shows multiple signs of tampering and data manipulation.',
+          error_message: 'Digital tampering and data mismatch detected.'
         });
       }
     }
