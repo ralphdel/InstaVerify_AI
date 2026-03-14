@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { getSubmissions } from '@/lib/db';
 
 export async function GET(request: Request) {
   try {
@@ -15,20 +14,22 @@ export async function GET(request: Request) {
     const adminIdFilter = searchParams.get('adminId');
     
     const role = user.user_metadata?.role;
-    let filters: { verified_by?: string } = {};
+    let query = supabase.from("submissions").select("*");
 
     if (role === 'super_admin') {
       // Super admin can see all or filter by a specific admin
       if (adminIdFilter) {
-        filters.verified_by = adminIdFilter;
+        query = query.eq("verified_by", adminIdFilter);
       }
     } else {
       // Normal admins only see their own verifications
-      filters.verified_by = user.id;
+      query = query.eq("verified_by", user.id);
     }
 
-    const submissions = await getSubmissions(filters);
-    return NextResponse.json({ submissions });
+    const { data: submissions, error } = await query.order("upload_time", { ascending: false });
+    if (error) throw error;
+
+    return NextResponse.json({ submissions: submissions || [] });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Internal server error' },

@@ -1,5 +1,5 @@
 import { VerificationResult } from "@/components/report/VerificationResult";
-import { getSubmission } from "@/lib/db";
+import { createClient } from "@/utils/supabase/server";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
@@ -9,7 +9,8 @@ export default async function ReportPage(props: { params: Promise<{ id: string }
   const params = await props.params;
   
   // Try fetching from DB
-  let submission = await getSubmission(params.id);
+  const supabase = await createClient();
+  const { data: submission } = await supabase.from("submissions").select("*").eq("id", params.id).single();
 
   // If not found but looks like a valid INV- ID, the record may not have saved yet
   if (!submission && params.id.startsWith("INV-")) {

@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { getSubmissions } from '@/lib/db';
 
 export async function GET(request: Request) {
   try {
@@ -15,15 +14,18 @@ export async function GET(request: Request) {
     const adminIdFilter = searchParams.get('adminId');
     
     const role = user.user_metadata?.role;
-    let filters: { verified_by?: string } = {};
+    let query = supabase.from("submissions").select("*");
 
     if (role === 'super_admin') {
-      if (adminIdFilter) filters.verified_by = adminIdFilter;
+      if (adminIdFilter) query = query.eq("verified_by", adminIdFilter);
     } else {
-      filters.verified_by = user.id;
+      query = query.eq("verified_by", user.id);
     }
 
-    const submissions = await getSubmissions(filters);
+    const { data: submissionsResult, error } = await query;
+    if (error) throw error;
+    
+    const submissions = submissionsResult || [];
     
     // Calculate metrics
     const total = submissions.length;

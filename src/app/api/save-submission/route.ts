@@ -44,9 +44,10 @@ export async function POST(request: NextRequest) {
     
     if (error) {
       console.error('[Save Submission] Supabase insert failed:', error.message);
-      // Return the submission anyway so the client can navigate to the report
-      // The record won't persist but at least the flow continues
-      return NextResponse.json({ ...submission, _warning: 'DB save failed: ' + error.message });
+      return NextResponse.json(
+        { error: 'Failed to save submission', details: error.message },
+        { status: 500 }
+      );
     }
 
     console.log('[Save Submission] Saved to Supabase:', id);
