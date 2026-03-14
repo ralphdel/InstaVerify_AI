@@ -4,6 +4,7 @@ import { Home, Upload, Settings, ShieldCheck, LogOut, Users } from 'lucide-react
 import { createClient } from '@/utils/supabase/server';
 import { logout } from '@/app/login/actions';
 import { Button } from '@/components/ui/button';
+import { MobileNav } from './MobileNav';
 
 export async function Sidebar() {
   const supabase = await createClient();
@@ -12,8 +13,9 @@ export async function Sidebar() {
   const isSuperAdmin = user?.user_metadata?.role === 'super_admin';
 
   return (
-    <aside className="fixed inset-y-0 left-0 w-64 bg-card border-r border-border flex flex-col">
-      <div className="h-16 flex items-center px-6 border-b border-border">
+    <>
+      <aside className="hidden md:flex fixed inset-y-0 left-0 w-64 bg-card border-r border-border flex-col z-40">
+        <div className="h-16 flex items-center px-6 border-b border-border">
         <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
           <ShieldCheck className="h-6 w-6 text-primary" />
           <span className="font-semibold text-lg text-primary tracking-tight">InstaVerify-AI</span>
@@ -61,6 +63,8 @@ export async function Sidebar() {
           </form>
         </div>
       </div>
-    </aside>
+      </aside>
+      <MobileNav isSuperAdmin={isSuperAdmin} />
+    </>
   );
 }

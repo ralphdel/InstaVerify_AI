@@ -13,8 +13,8 @@ export async function Header() {
     : '??';
 
   return (
-    <header className="h-16 bg-card border-b border-border flex items-center justify-between px-6 sticky top-0 z-10">
-      <div className="w-1/3 min-w-[250px]">
+    <header className="h-16 bg-card border-b border-border flex items-center justify-between px-4 md:px-6 sticky top-0 z-10 w-full">
+      <div className="flex-1 md:w-1/3 md:min-w-[250px] mr-4">
         <div className="relative">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input 
