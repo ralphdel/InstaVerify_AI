@@ -4,7 +4,7 @@ import { createClient } from "@/utils/supabase/server";
 import { AdminFilter } from "@/components/dashboard/AdminFilter";
 
 export default async function DashboardPage(props: {
-  searchParams: Promise<{ adminId?: string }>;
+  searchParams: Promise<{ adminId?: string; q?: string }>;
 }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -12,6 +12,7 @@ export default async function DashboardPage(props: {
   
   const role = user?.user_metadata?.role;
   const adminIdFilter = searchParams.adminId;
+  const searchQuery = searchParams.q;
 
   return (
     <div className="space-y-8">
@@ -34,11 +35,16 @@ export default async function DashboardPage(props: {
           Submission History
           {adminIdFilter && (
             <span className="text-sm font-normal text-muted-foreground bg-secondary px-2 py-0.5 rounded">
-              Filtered View
+              Filtered by Admin
+            </span>
+          )}
+          {searchQuery && (
+            <span className="text-sm font-normal text-muted-foreground bg-secondary px-2 py-0.5 rounded">
+              Search: "{searchQuery}"
             </span>
           )}
         </h3>
-        <DashboardTable adminId={adminIdFilter} />
+        <DashboardTable adminId={adminIdFilter} searchQuery={searchQuery} />
       </div>
     </div>
   );

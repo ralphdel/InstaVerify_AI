@@ -35,7 +35,16 @@ export default function ChangePasswordPage() {
       } else {
         setSuccess(true);
       }
-    } catch {
+    } catch (err: unknown) {
+      // Re-throw Next.js redirect errors so navigation can proceed with spinner still active
+      if (
+        err &&
+        typeof err === 'object' &&
+        'digest' in err &&
+        String((err as { digest: string }).digest).startsWith('NEXT_REDIRECT')
+      ) {
+        throw err;
+      }
       setError('Failed to update password. Please try again.');
       setIsLoading(false);
     }

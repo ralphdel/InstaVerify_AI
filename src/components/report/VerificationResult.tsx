@@ -29,11 +29,12 @@ interface VerificationResultProps {
     error_message?: string | null;
     ai_summary?: string;
   };
+  role?: string;
 }
 
 export function VerificationResult({
   id, merchantName, merchantAddress, documentType,
-  status, score, signals, time, details
+  status, score, signals, time, details, role
 }: VerificationResultProps) {
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -288,22 +289,24 @@ export function VerificationResult({
               <Download className="h-4 w-4" />
               Download Audit PDF
             </Button>
-            <Button
-              variant="outline"
-              className="w-full sm:w-auto flex items-center justify-center gap-2 h-11"
-              onClick={() => {
-                const blob = new Blob([JSON.stringify(rawData, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `instaverify-raw-${id || 'report'}.json`;
-                a.click();
-                URL.revokeObjectURL(url);
-              }}
-            >
-              <FileCheck className="h-4 w-4" />
-              View Raw Data
-            </Button>
+            {role === 'super_admin' && (
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto flex items-center justify-center gap-2 h-11"
+                onClick={() => {
+                  const blob = new Blob([JSON.stringify(rawData, null, 2)], { type: 'application/json' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `instaverify-raw-${id || 'report'}.json`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+              >
+                <FileCheck className="h-4 w-4" />
+                View Raw Data
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>

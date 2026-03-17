@@ -35,10 +35,25 @@ export function LoginForm({
     setIsLoading(true);
     setError(null);
     try {
+      // Small delay to ensure the loading spinner is always visible to the user.
+      // On localhost, server actions resolve in <100ms — too fast to see any spinner.
+      await new Promise((resolve) => setTimeout(resolve, 700));
       await login(formData);
-    } catch {
-      // login redirects on success, so if we reach here something went wrong
+    } catch (err: unknown) {
+      // Next.js redirect() throws a special NEXT_REDIRECT error to abort rendering.
+      // We must re-throw it, otherwise the catch block kills the spinner and
+      // prevents navigation from happening.
+      if (
+        err &&
+        typeof err === 'object' &&
+        'digest' in err &&
+        String((err as { digest: string }).digest).startsWith('NEXT_REDIRECT')
+      ) {
+        throw err;
+      }
+      // Only reset loading for real errors (wrong password, etc.)
       setIsLoading(false);
+      setError('Sign in failed. Please check your credentials and try again.');
     }
   }
 

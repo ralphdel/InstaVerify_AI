@@ -38,6 +38,8 @@ export default async function ReportPage(props: { params: Promise<{ id: string }
 
   if (!submission) notFound();
 
+  const { data: { user } } = await supabase.auth.getUser();
+  const role = user?.user_metadata?.role;
   const processingTime = (Math.random() * 4 + 12).toFixed(1) + " seconds";
 
   return (
@@ -62,6 +64,7 @@ export default async function ReportPage(props: { params: Promise<{ id: string }
         signals={submission.signals}
         time={processingTime}
         details={submission.verification_details}
+        role={role}
       />
     </div>
   );

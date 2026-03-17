@@ -12,6 +12,7 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const adminIdFilter = searchParams.get('adminId');
+    const searchQuery = searchParams.get('q');
     
     const role = user.user_metadata?.role;
     let query = supabase.from("submissions").select("*");
@@ -24,6 +25,11 @@ export async function GET(request: Request) {
     } else {
       // Normal admins only see their own verifications
       query = query.eq("verified_by", user.id);
+    }
+
+    if (searchQuery) {
+      // Case-insensitive search on merchant_name or submission id
+      query = query.or(`merchant_name.ilike.%${searchQuery}%,id.ilike.%${searchQuery}%`);
     }
 
     const { data: submissions, error } = await query.order("upload_time", { ascending: false });

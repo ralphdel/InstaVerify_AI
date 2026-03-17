@@ -5,13 +5,20 @@ import { Bell, User, LogOut, Settings, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { logout } from '@/app/login/actions';
 
+interface Notification {
+  id: string;
+  merchant_name: string;
+  upload_time: string;
+}
+
 interface UserNavProps {
   user: {
     email?: string | null;
   } | null;
+  notifications?: Notification[];
 }
 
-export function UserNav({ user }: UserNavProps) {
+export function UserNav({ user, notifications = [] }: UserNavProps) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   
@@ -36,6 +43,17 @@ export function UserNav({ user }: UserNavProps) {
     ? user.email.substring(0, 2).toUpperCase()
     : '??';
 
+  const formatRelativeTime = (dateStr: string) => {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (days > 0) return `${days}d ago`;
+    if (hours > 0) return `${hours}h ago`;
+    return `${minutes}m ago`;
+  };
+
   return (
     <div className="flex items-center gap-3">
       {/* Notifications */}
@@ -50,21 +68,57 @@ export function UserNav({ user }: UserNavProps) {
           }}
         >
           <Bell className="h-5 w-5" />
-          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-success ring-2 ring-card" />
+          {notifications.length > 0 && (
+            <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-destructive ring-2 ring-card animate-pulse" />
+          )}
         </Button>
         
         {isNotificationsOpen && (
-          <div className="absolute right-0 top-full mt-2 w-80 bg-card border border-border rounded-lg shadow-lg animate-in fade-in slide-in-from-top-2 duration-200 z-50">
-            <div className="p-4 border-b border-border">
-              <h4 className="text-sm font-semibold">Notifications</h4>
+          <div className="absolute right-0 top-full mt-2 w-80 bg-card border border-border rounded-lg shadow-lg animate-in fade-in slide-in-from-top-2 duration-200 z-50 overflow-hidden">
+            <div className="p-4 border-b border-border flex items-center justify-between bg-muted/30">
+              <h4 className="text-sm font-semibold">Alerts</h4>
+              {notifications.length > 0 && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-destructive text-destructive-foreground">
+                  {notifications.length} New
+                </span>
+              )}
             </div>
-            <div className="p-8 text-center">
-              <div className="h-12 w-12 rounded-full bg-secondary/50 flex items-center justify-center mx-auto mb-3">
-                <Bell className="h-6 w-6 text-muted-foreground/40" />
+            
+            {notifications.length === 0 ? (
+              <div className="p-8 text-center">
+                <div className="h-12 w-12 rounded-full bg-secondary/50 flex items-center justify-center mx-auto mb-3">
+                  <Bell className="h-6 w-6 text-muted-foreground/40" />
+                </div>
+                <p className="text-sm font-medium text-foreground">No new alerts</p>
+                <p className="text-xs text-muted-foreground mt-1">We'll notify you when documents are flagged.</p>
               </div>
-              <p className="text-sm font-medium text-foreground">No new notifications</p>
-              <p className="text-xs text-muted-foreground mt-1">We&apos;ll notify you when documents are verified.</p>
-            </div>
+            ) : (
+              <div className="max-h-[300px] overflow-y-auto">
+                {notifications.map((note) => (
+                  <Link 
+                    key={note.id} 
+                    href={`/report/${note.id}`}
+                    onClick={() => setIsNotificationsOpen(false)}
+                    className="flex flex-col p-4 border-b border-border last:border-0 hover:bg-secondary/50 transition-colors"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-semibold text-destructive uppercase tracking-wider">Flagged</span>
+                      <span className="text-[10px] text-muted-foreground">{formatRelativeTime(note.upload_time)}</span>
+                    </div>
+                    <p className="text-sm text-foreground font-medium truncate">{note.merchant_name}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">Verification requires manual review.</p>
+                  </Link>
+                ))}
+              </div>
+            )}
+            
+            {notifications.length > 0 && (
+              <div className="p-2 border-t border-border bg-muted/10">
+                <Link href="/dashboard" className="block text-center text-xs font-medium text-primary hover:underline py-1">
+                  View all submissions
+                </Link>
+              </div>
+            )}
           </div>
         )}
       </div>

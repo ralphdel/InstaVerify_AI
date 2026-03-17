@@ -24,7 +24,7 @@ interface Submission {
   verified_by_email?: string;
 }
 
-export function DashboardTable({ adminId }: { adminId?: string }) {
+export function DashboardTable({ adminId, searchQuery }: { adminId?: string, searchQuery?: string }) {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,9 +33,14 @@ export function DashboardTable({ adminId }: { adminId?: string }) {
     async function fetchData() {
       setIsLoading(true);
       try {
-        const url = adminId 
-          ? `/api/submissions?adminId=${adminId}`
-          : '/api/submissions';
+        let url = '/api/submissions';
+        const params = new URLSearchParams();
+        if (adminId) params.append('adminId', adminId);
+        if (searchQuery) params.append('q', searchQuery);
+        
+        const qs = params.toString();
+        if (qs) url += `?${qs}`;
+
         const res = await fetch(url);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
@@ -47,7 +52,7 @@ export function DashboardTable({ adminId }: { adminId?: string }) {
       }
     }
     fetchData();
-  }, [adminId]);
+  }, [adminId, searchQuery]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -98,6 +103,20 @@ export function DashboardTable({ adminId }: { adminId?: string }) {
   }
 
   if (submissions.length === 0) {
+    if (searchQuery) {
+      return (
+        <div className="rounded-md border border-border bg-card p-16 flex flex-col items-center justify-center text-center">
+          <div className="h-12 w-12 rounded-full bg-secondary flex items-center justify-center mb-4">
+            <Database className="h-6 w-6 text-muted-foreground opacity-50" />
+          </div>
+          <h3 className="text-lg font-medium">No results found</h3>
+          <p className="text-sm text-muted-foreground max-w-[250px] mt-1">
+            No submissions matched "{searchQuery}". Try a different search term.
+          </p>
+        </div>
+      );
+    }
+
     return (
       <div className="rounded-md border border-border bg-card p-16 flex flex-col items-center justify-center text-center">
         <div className="h-12 w-12 rounded-full bg-secondary flex items-center justify-center mb-4">
