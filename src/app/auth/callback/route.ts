@@ -11,10 +11,17 @@ export async function GET(request: Request) {
   const token_hash = searchParams.get('token_hash');
   const type = searchParams.get('type') as EmailOtpType;
   
-  let next = searchParams.get('next') ?? '/dashboard';
+  const explicitNext = searchParams.get('next');
+  let next = explicitNext ?? '/dashboard';
   
-  if (type === 'recovery') {
-    next = '/auth/reset-password';
+  // Only apply type-based defaults when no explicit `next` was provided
+  if (!explicitNext) {
+    if (type === 'recovery') {
+      next = '/auth/reset-password';
+    }
+    if (type === 'invite') {
+      next = '/auth/change-password';
+    }
   }
 
   const supabase = await createClient();

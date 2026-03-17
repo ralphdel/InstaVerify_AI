@@ -82,21 +82,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
     }
 
-    // Step 2: Generate a magic link for their first login/invite
+    // Step 2: Generate a recovery (password reset) link for the new admin's first login.
+    // IMPORTANT: We use 'recovery' type because the user is already created and confirmed
+    // (email_confirm: true). The 'invite' and 'magiclink' types don't work for 
+    // already-confirmed users. Recovery tokens work reliably and establish a proper session.
+    const baseUrl = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
     const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
-      type: 'magiclink',
+      type: 'recovery',
       email: email,
       options: {
-        // Point to the server callback to establish the session, then redirect to the change password form
-        redirectTo: `${request.headers.get('origin') || 'http://localhost:3000'}/auth/callback?next=/auth/change-password`,
+        redirectTo: `${baseUrl}/auth/callback?next=/auth/change-password`,
       },
     });
 
     // Step 3: Send the email via Brevo SMTP
     if (linkData?.properties?.hashed_token) {
-      const baseUrl = request.headers.get('origin') || 'http://localhost:3000';
-      // Construct a custom link that hits the Next.js server callback directly with the token hash
-      const customLink = `${baseUrl}/auth/callback?token_hash=${linkData.properties.hashed_token}&type=magiclink&next=/auth/change-password`;
+      // Construct a custom link that hits the Next.js server callback directly with the token hash.
+      // type=recovery ensures verifyOtp works correctly and the callback redirects to change-password.
+      const customLink = `${baseUrl}/auth/callback?token_hash=${linkData.properties.hashed_token}&type=recovery&next=/auth/change-password`;
       
       // Import dynamically to avoid top-level await/env issues
       const { sendAdminInviteViaSMTP } = await import('@/lib/brevo-mail');
@@ -154,6 +157,23 @@ export async function DELETE(request: Request) {
     }
 
     const adminClient = createAdminClient();
+
+    // Step 1: Nullify the foreign key references in submissions table 
+    // so we don't violate FK constraints when deleting the auth user.
+    const { error: updateError } = await adminClient
+      .from('submissions')
+      .update({ verified_by: null, verified_by_email: null })
+      .eq('verified_by', userId);
+
+    if (updateError) {
+      console.error('[Admin Delete] Failed to clear submissions FK:', updateError);
+      return NextResponse.json(
+        { error: 'Failed to clean up user submissions references: ' + updateError.message },
+        { status: 500 }
+      );
+    }
+
+    // Step 2: Now safely delete the user
     const { error } = await adminClient.auth.admin.deleteUser(userId);
 
     if (error) {
@@ -168,3 +188,4 @@ export async function DELETE(request: Request) {
     );
   }
 }
+
