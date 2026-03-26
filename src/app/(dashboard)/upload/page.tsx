@@ -10,6 +10,7 @@ import { convertPdfToImage, isPdfFile } from "@/lib/pdfUtils";
 export default function UploadPage() {
   const router = useRouter();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isUploadComplete, setIsUploadComplete] = useState(false);
   const [submissionData, setSubmissionData] = useState<string | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
 
@@ -21,6 +22,7 @@ export default function UploadPage() {
   ) => {
     setPdfError(null);
     setIsProcessing(true);
+    setIsUploadComplete(false);
 
     let verificationResult = {
       score: 50,
@@ -176,6 +178,9 @@ export default function UploadPage() {
       // Still allow the processing state to show even if save fails, but mark it withTEMP
       setSubmissionData(`TEMP-${Date.now()}`);
     }
+
+    // Tell processing state to finish
+    setIsUploadComplete(true);
   };
 
   const handleProcessingComplete = () => {
@@ -210,7 +215,7 @@ export default function UploadPage() {
       {!isProcessing ? (
         <UploadZone onUpload={handleUpload} />
       ) : (
-        <ProcessingState onComplete={handleProcessingComplete} />
+        <ProcessingState onComplete={handleProcessingComplete} isUploadComplete={isUploadComplete} />
       )}
     </div>
   );

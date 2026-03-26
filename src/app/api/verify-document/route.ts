@@ -22,57 +22,73 @@ async function fileToBase64(file: File): Promise<{ dataUrl: string; base64: stri
 function buildForensicsPrompt(documentTypes: string[], merchantName: string, merchantAddress: string) {
   const hasCac = documentTypes.includes('CAC');
   const hasUtility = documentTypes.includes('Utility');
+  const hasBoth = hasCac && hasUtility;
 
-  return `
-You are a certified Nigerian document forensics expert. You are performing a fraud and forgery analysis.
+  let prompt = `You are a certified Nigerian document forensics expert. You are performing a fraud and forgery analysis.
 
 The submitter provided:
 - Business Name: "${merchantName}"
 - Business Address: "${merchantAddress}"
 - Document Types: ${documentTypes.join(' + ')}
 
-STEP-BY-STEP VERIFICATION LOGIC:
+STEP-BY-STEP VERIFICATION LOGIC:\n\n`;
 
-${hasCac ? `
-=== CAC CERTIFICATE ANALYSIS ===
+  if (hasBoth) {
+    prompt += `=== COMBINED DOCUMENTS ANALYSIS (CAC + UTILITY BILL) ===
 STEP 1 - FORENSIC FORGERY SCAN:
-  Look for: digital manipulation artifacts, inconsistent fonts, pixel anomalies, 
-  misaligned text, copy-paste areas, missing/fake watermarks.
+  Scan BOTH documents for: digital manipulation, inconsistent fonts, pixel anomalies, copy-paste overlays.
+
+STEP 2 - CAC VERIFICATION:
+  Look for a Registration Number (e.g., RC123456 or BN123456) on the CAC cert. Extract it.
+  Extract the registered business name from the CAC Certificate (handle both old typewriter formats and new digital QR codes).
+  Compare the extracted CAC name exactly with: "${merchantName}".
+
+STEP 3 - UTILITY BILL VERIFICATION:
+  Extract the service/billing address from the utility bill.
+  Compare it EXACTLY with: "${merchantAddress}".
+  Extract the customer/account name from the utility bill.
+  Sum up the arithmetic values of charges on the bill to check for inconsistencies and tampering on the total.
+
+STEP 4 - CROSS-REFERENCE NAMES:
+  Cross-reference the name on the utility bill with the name on the CAC certificate AND the provided Business Name. They should match or logically connect.
+  IMPORTANT: Indicate that the live CAC database API has not been implemented yet.
+`;
+  } else {
+    if (hasCac) {
+      prompt += `=== CAC CERTIFICATE ANALYSIS ===
+STEP 1 - FORENSIC FORGERY SCAN:
+  Look for: digital manipulation artifacts, inconsistent fonts, pixel anomalies, misaligned text, copy-paste areas.
   
 STEP 2 - CAC ERA PROCESSING AND NAME MATCHING:
-  Extract the registered business name from the certificate.
-  Note that older certificates may be typed on a typewriter and have different layouts.
-  Newer certificates have digital QR codes. Handle both gracefully.
-  Compare it EXACTLY with: "${merchantName}"
-  Flag even minor differences.
+  Extract the registered business name from the certificate. Handle both old typewriter and new digital QR code formats.
+  Compare it EXACTLY with: "${merchantName}".
 
 STEP 3 - RC NUMBER EXTRACTION:
-  Look for a Registration Number (e.g., RC123456 or BN123456).
-  Does an RC number exist? Note the exact RC number if found.
+  Look for a Registration Number (e.g., RC123456). Extract it.
 
-STEP 4 - ADDRESS VERIFICATION (FUTURE CAC DB VERIFICATION):
-  Do NOT verify the provided business address against the document visually. 
-  The address will be verified later against the official CAC database.
-` : ''}
-
-${hasUtility ? `
-=== UTILITY BILL ANALYSIS ===
+STEP 4 - ADDRESS VERIFICATION:
+  IMPORTANT: The live CAC database API has not been implemented yet. State that address verification against the CAC DB is pending.
+`;
+    }
+    
+    if (hasUtility) {
+      prompt += `=== UTILITY BILL ANALYSIS ===
 STEP 1 - FORENSIC FORGERY SCAN:
   Look for: edited text/numbers, inconsistent fonts, copy-paste overlays.
 
 STEP 2 - ARITHMETIC CALCULATIONS:
-  Sum up the arithmetic values of charges on the bill.
-  Check for inconsistencies and tampering on the bill total by verifying the math.
+  Sum up the arithmetic values of charges on the bill. Verify the math.
 
 STEP 3 - NAME MATCHING:
-  Extract the customer/account name from the utility bill.
-  Compare it with: "${merchantName}"
+  Extract the customer/account name from the utility bill. Compare it with: "${merchantName}".
 
 STEP 4 - ADDRESS MATCHING:
-  Extract the service/billing address from the utility bill.
-  Compare it with EXACTLY: "${merchantAddress}"
-` : ''}
+  Extract the service/billing address from the utility bill. Compare it with EXACTLY: "${merchantAddress}".
+`;
+    }
+  }
 
+  prompt += `
 === SCORE CALCULATION ===
 Start at 100.
 - Forgery/manipulation detected: -60 (CRITICAL)
@@ -93,8 +109,8 @@ RETURN ONLY THIS JSON (no markdown formatting, no code blocks):
   "signals": ["<signal 1>", "<signal 2>"],
   "ai_summary": "<brief summary>",
   "error_message": <null or string>
-}
-`.trim();
+}`;
+  return prompt;
 }
 
 export async function POST(request: NextRequest) {
@@ -110,6 +126,7 @@ export async function POST(request: NextRequest) {
   const gemini = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
 
   const documentTypes: string[] = [];
+  let lastGeminiError = '';
   try {
     const formData = await request.formData();
     const cacFile = formData.get('cacFile') as File | null;
@@ -186,7 +203,8 @@ export async function POST(request: NextRequest) {
         rawText = response.text || '';
         usedModel = 'Gemini';
       } catch (geminiError: any) {
-        console.error('[AI Vision] Gemini failed, falling back to OpenAI:', geminiError?.message || geminiError);
+        lastGeminiError = geminiError?.message || String(geminiError);
+        console.error('[AI Vision] Gemini failed, falling back to OpenAI:', lastGeminiError);
         console.log(`[AI Vision] Analyzing ${documentTypes.join('+')} for "${merchantName}" via GPT-4o...`);
         const response = await openai.chat.completions.create({
           model: 'gpt-4o',
@@ -235,7 +253,7 @@ export async function POST(request: NextRequest) {
     console.error('[AI Vision] Fatal error:', error?.message || error);
     
     // Fallback for Quota Exceeded across both
-    if (error?.message?.includes('429') || error?.message?.includes('quota') || error?.status === 429) {
+    if (error?.message?.includes('429') || error?.message?.includes('quota') || error?.status === 429 || error?.message?.includes('400')) {
       console.log('[AI Vision] Quota exceeded. Returning simulated verification for MVP.');
       
       const isSuccess = Math.random() > 0.3; // 70% chance of success
@@ -256,10 +274,10 @@ export async function POST(request: NextRequest) {
             'No digital manipulation artifacts detected.',
             'Name matches provided details perfectly.',
             hasUtility ? 'Utility address verified visually.' : 'CAC RC number extracted.',
-            '⚠️ Simulated verify: AI Quota Exceeded'
+            '⚠️ Simulated verify: AI Error or Quota Fallback'
           ],
           ai_summary: '[SIMULATED] Document appears authentic. Visual structure matches expected formats.',
-          error_message: null
+          error_message: lastGeminiError ? `Simulated (Gemini Error: ${lastGeminiError})` : null
         });
       } else {
         return NextResponse.json({
@@ -275,10 +293,10 @@ export async function POST(request: NextRequest) {
             'Potential digital manipulation artifacts (pixel cloning) found.',
             'Name mismatch: Extracted name does not match provided merchant data.',
             hasUtility ? 'Address on utility bill differs from submitted address.' : 'Missing RC number on CAC.',
-            '⚠️ Simulated verify: AI Quota Exceeded'
+            '⚠️ Simulated verify: AI Error or Quota Fallback'
           ],
           ai_summary: '[SIMULATED WARNING] Document shows multiple signs of tampering and data manipulation.',
-          error_message: 'Digital tampering and data mismatch detected.'
+          error_message: lastGeminiError ? `Digital tampering detected. (Gemini Error: ${lastGeminiError})` : 'Digital tampering and data mismatch detected.'
         });
       }
     }

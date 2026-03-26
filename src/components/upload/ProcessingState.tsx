@@ -10,7 +10,7 @@ const steps = [
   "Calculating confidence score..."
 ];
 
-export function ProcessingState({ onComplete }: { onComplete: () => void }) {
+export function ProcessingState({ onComplete, isUploadComplete }: { onComplete: () => void, isUploadComplete: boolean }) {
   const [currentStep, setCurrentStep] = useState(0);
   const [progress, setProgress] = useState(0);
 
@@ -20,6 +20,11 @@ export function ProcessingState({ onComplete }: { onComplete: () => void }) {
     
     const timer = setInterval(() => {
       setProgress((prev) => {
+        // Hold at 98% if the backend is still processing
+        if (prev >= 98 && !isUploadComplete) {
+          return 98;
+        }
+
         if (prev >= 100) {
           clearInterval(timer);
           setTimeout(onComplete, 500);
@@ -36,7 +41,7 @@ export function ProcessingState({ onComplete }: { onComplete: () => void }) {
     }, intervalTime);
 
     return () => clearInterval(timer);
-  }, [currentStep, onComplete]);
+  }, [currentStep, onComplete, isUploadComplete]);
 
   return (
     <div className="max-w-md mx-auto p-8 bg-card border border-border rounded-xl shadow-sm">

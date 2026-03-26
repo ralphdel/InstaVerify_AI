@@ -38,10 +38,20 @@ export function DashboardTable({ adminId, searchQuery }: { adminId?: string, sea
         if (adminId) params.append('adminId', adminId);
         if (searchQuery) params.append('q', searchQuery);
         
+        // Add timestamp to aggressively bust browser cache
+        params.append('_t', Date.now().toString());
+        
         const qs = params.toString();
         if (qs) url += `?${qs}`;
 
-        const res = await fetch(url);
+        const res = await fetch(url, {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          }
+        });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
         setSubmissions(data.submissions);
