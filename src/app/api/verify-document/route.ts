@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { GoogleGenAI } from '@google/genai';
 import { createClient } from '@/utils/supabase/server';
 
 export const maxDuration = 60; // Allow up to 60s for AI analysis
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-// Convert uploaded file to base64 data URL for OpenAI Vision
-// Supports: jpg, jpeg, png, gif, webp. For PDFs, returns null.
-async function fileToBase64(file: File): Promise<{ dataUrl: string; isPdf: false } | { isPdf: true }> {
+// Convert uploaded file to base64 data URL for OpenAI Vision and raw base64 for Gemini
+// Supports: jpg, jpeg, png, gif, webp. For PDFs, returns isPdf: true.
+async function fileToBase64(file: File): Promise<{ dataUrl: string; base64: string; mimeType: string; isPdf: false } | { isPdf: true }> {
   const mimeType = file.type || '';
   if (mimeType === 'application/pdf') return { isPdf: true };
   if (!['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'].includes(mimeType)) {
@@ -16,7 +15,7 @@ async function fileToBase64(file: File): Promise<{ dataUrl: string; isPdf: false
   }
   const buffer = Buffer.from(await file.arrayBuffer());
   const base64 = buffer.toString('base64');
-  return { dataUrl: `data:${mimeType};base64,${base64}`, isPdf: false };
+  return { dataUrl: `data:${mimeType};base64,${base64}`, base64, mimeType, isPdf: false };
 }
 
 // Build a structured forensic analysis prompt for CAC or Utility
@@ -40,8 +39,10 @@ STEP 1 - FORENSIC FORGERY SCAN:
   Look for: digital manipulation artifacts, inconsistent fonts, pixel anomalies, 
   misaligned text, copy-paste areas, missing/fake watermarks.
   
-STEP 2 - NAME MATCHING:
+STEP 2 - CAC ERA PROCESSING AND NAME MATCHING:
   Extract the registered business name from the certificate.
+  Note that older certificates may be typed on a typewriter and have different layouts.
+  Newer certificates have digital QR codes. Handle both gracefully.
   Compare it EXACTLY with: "${merchantName}"
   Flag even minor differences.
 
@@ -59,11 +60,15 @@ ${hasUtility ? `
 STEP 1 - FORENSIC FORGERY SCAN:
   Look for: edited text/numbers, inconsistent fonts, copy-paste overlays.
 
-STEP 2 - NAME MATCHING:
+STEP 2 - ARITHMETIC CALCULATIONS:
+  Sum up the arithmetic values of charges on the bill.
+  Check for inconsistencies and tampering on the bill total by verifying the math.
+
+STEP 3 - NAME MATCHING:
   Extract the customer/account name from the utility bill.
   Compare it with: "${merchantName}"
 
-STEP 3 - ADDRESS MATCHING:
+STEP 4 - ADDRESS MATCHING:
   Extract the service/billing address from the utility bill.
   Compare it with EXACTLY: "${merchantAddress}"
 ` : ''}
@@ -75,7 +80,7 @@ Start at 100.
 - Address mismatch (UTILITY ONLY): -15  
 - RC number missing (CAC ONLY): -20
 
-RETURN ONLY THIS JSON:
+RETURN ONLY THIS JSON (no markdown formatting, no code blocks):
 {
   "score": <integer 0-100>,
   "forgery_detected": <true if manipulation evidence found>,
@@ -88,17 +93,21 @@ RETURN ONLY THIS JSON:
   "signals": ["<signal 1>", "<signal 2>"],
   "ai_summary": "<brief summary>",
   "error_message": <null or string>
-}`.trim();
+}
+`.trim();
 }
 
 export async function POST(request: NextRequest) {
-  // Early check - if no OpenAI key, fail clearly
-  if (!process.env.OPENAI_API_KEY) {
+  // Early check - if no AI keys, fail clearly
+  if (!process.env.OPENAI_API_KEY && !process.env.GEMINI_API_KEY) {
     return NextResponse.json(
-      { error: 'OpenAI API key not configured on the server.' },
+      { error: 'AI API keys not configured on the server.' },
       { status: 500 }
     );
   }
+
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const gemini = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
 
   const documentTypes: string[] = [];
   try {
@@ -112,7 +121,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No documents provided' }, { status: 400 });
     }
 
-    const content: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [];
+    const openaiContent: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [];
+    const geminiContent: any[] = [];
 
     // Process CAC file
     if (cacFile) {
@@ -124,7 +134,13 @@ export async function POST(request: NextRequest) {
         }, { status: 422 });
       }
       documentTypes.push('CAC');
-      content.push({ type: 'image_url', image_url: { url: result.dataUrl, detail: 'high' } });
+      openaiContent.push({ type: 'image_url', image_url: { url: result.dataUrl, detail: 'high' } });
+      geminiContent.push({
+        inlineData: {
+          data: result.base64,
+          mimeType: result.mimeType
+        }
+      });
     }
 
     // Process Utility file
@@ -137,27 +153,65 @@ export async function POST(request: NextRequest) {
         }, { status: 422 });
       }
       documentTypes.push('Utility');
-      content.push({ type: 'image_url', image_url: { url: result.dataUrl, detail: 'high' } });
+      openaiContent.push({ type: 'image_url', image_url: { url: result.dataUrl, detail: 'high' } });
+      geminiContent.push({
+        inlineData: {
+          data: result.base64,
+          mimeType: result.mimeType
+        }
+      });
     }
 
-    content.unshift({
-      type: 'text',
-      text: buildForensicsPrompt(documentTypes, merchantName, merchantAddress),
-    });
+    const promptText = buildForensicsPrompt(documentTypes, merchantName, merchantAddress);
+    
+    // Add text prompt
+    openaiContent.unshift({ type: 'text', text: promptText });
+    geminiContent.unshift(promptText);
 
-    console.log(`[AI Vision] Analyzing ${documentTypes.join('+')} for "${merchantName}" via GPT-4o...`);
+    let rawText = '';
+    let usedModel = '';
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      max_tokens: 1500,
-      temperature: 0.1,
-      messages: [{ role: 'user', content }],
-    });
+    // Try Gemini as primary, fallback to OpenAI
+    if (gemini) {
+      console.log(`[AI Vision] Analyzing ${documentTypes.join('+')} for "${merchantName}" via Gemini...`);
+      try {
+        const response = await gemini.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: geminiContent,
+          config: {
+            temperature: 0.1,
+            responseMimeType: 'application/json',
+          }
+        });
+        rawText = response.text || '';
+        usedModel = 'Gemini';
+      } catch (geminiError: any) {
+        console.error('[AI Vision] Gemini failed, falling back to OpenAI:', geminiError?.message || geminiError);
+        console.log(`[AI Vision] Analyzing ${documentTypes.join('+')} for "${merchantName}" via GPT-4o...`);
+        const response = await openai.chat.completions.create({
+          model: 'gpt-4o',
+          max_tokens: 1500,
+          temperature: 0.1,
+          messages: [{ role: 'user', content: openaiContent }],
+        });
+        rawText = response.choices[0]?.message?.content || '';
+        usedModel = 'OpenAI';
+      }
+    } else {
+      console.log(`[AI Vision] Analyzing ${documentTypes.join('+')} for "${merchantName}" via GPT-4o...`);
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        max_tokens: 1500,
+        temperature: 0.1,
+        messages: [{ role: 'user', content: openaiContent }],
+      });
+      rawText = response.choices[0]?.message?.content || '';
+      usedModel = 'OpenAI';
+    }
 
-    const rawText = response.choices[0]?.message?.content || '';
     const cleanText = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('AI did not return valid JSON');
+    if (!jsonMatch) throw new Error(`${usedModel} did not return valid JSON`);
 
     const ai = JSON.parse(jsonMatch[0]);
 
@@ -170,7 +224,7 @@ export async function POST(request: NextRequest) {
       rc_number: ai.rc_number ?? null,
       rc_number_found: Boolean(ai.rc_number_found),
       rc_verification_status: 'pending_api',
-      signals: Array.isArray(ai.signals) ? ai.signals : ['AI analysis completed'],
+      signals: Array.isArray(ai.signals) ? ai.signals.map((s: string) => `[${usedModel}] ${s}`) : [`${usedModel} analysis completed`],
       ai_summary: ai.ai_summary || 'Analysis complete.',
       error_message: ai.error_message || null,
     };
@@ -180,7 +234,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('[AI Vision] Fatal error:', error?.message || error);
     
-    // Fallback for OpenAI Quota Exceeded
+    // Fallback for Quota Exceeded across both
     if (error?.message?.includes('429') || error?.message?.includes('quota') || error?.status === 429) {
       console.log('[AI Vision] Quota exceeded. Returning simulated verification for MVP.');
       
@@ -202,7 +256,7 @@ export async function POST(request: NextRequest) {
             'No digital manipulation artifacts detected.',
             'Name matches provided details perfectly.',
             hasUtility ? 'Utility address verified visually.' : 'CAC RC number extracted.',
-            '⚠️ Simulated verify: OpenAI Quota Exceeded'
+            '⚠️ Simulated verify: AI Quota Exceeded'
           ],
           ai_summary: '[SIMULATED] Document appears authentic. Visual structure matches expected formats.',
           error_message: null
@@ -221,7 +275,7 @@ export async function POST(request: NextRequest) {
             'Potential digital manipulation artifacts (pixel cloning) found.',
             'Name mismatch: Extracted name does not match provided merchant data.',
             hasUtility ? 'Address on utility bill differs from submitted address.' : 'Missing RC number on CAC.',
-            '⚠️ Simulated verify: OpenAI Quota Exceeded'
+            '⚠️ Simulated verify: AI Quota Exceeded'
           ],
           ai_summary: '[SIMULATED WARNING] Document shows multiple signs of tampering and data manipulation.',
           error_message: 'Digital tampering and data mismatch detected.'
