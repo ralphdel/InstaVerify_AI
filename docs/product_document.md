@@ -1,7 +1,7 @@
 # Product Document: InstaVerify-AI
 
 ## 1. Product Vision
-InstaVerify-AI is a next-generation fintech compliance platform tailored for the Nigerian market. Its primary mission is to eliminate the industry-standard 72-hour delay in business onboarding (KYB/KYC) by leveraging advanced AI Vision models to perform forensic authentication on CAC (Corporate Affairs Commission) certificates and Utility Bills in under 60 seconds.
+InstaVerify-AI is a next-generation fintech compliance platform tailored for the Nigerian market. Its primary mission is to eliminate the industry-standard 72-hour delay in business onboarding (KYB/KYC) by leveraging advanced AI Vision models (powered by a dual-pipeline of Google Gemini 2.5 Flash and OpenAI Vision) to perform forensic authentication on CAC (Corporate Affairs Commission) certificates and Utility Bills in under 60 seconds.
 
 ## 2. Target Audience
 - **Fintech Operators/Reviewers:** Internal compliance teams at fintech companies who need to rapidly clear merchants for payment processing.

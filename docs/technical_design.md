@@ -9,7 +9,7 @@ The system dynamically constructs the `system` prompt based on the file types su
 - **If Utility:** The model is instructed to match both the name and the exact billing address against user input, alongside forgery detection.
 
 ### Fallback/Mock System
-To ensure the MVP remains functional when OpenAI billing quotas (HTTP 429) are hit, a deterministic fallback simulator intercepts the catch block. It generates a mock JSON payload that structurally identically matches the AI output, randomly deciding between a "Success" and "Flagged" state, allowing UI testing to continue unimpeded.
+To ensure the MVP remains functional when AI billing quotas (HTTP 429) are hit across Gemini and OpenAI, a deterministic fallback simulator intercepts the catch block. It generates a mock JSON payload that structurally identically matches the AI output, randomly deciding between a "Success" and "Flagged" state, allowing UI testing to continue unimpeded.
 
 ## 2. API Data Flow (Database)
 Instead of processing database queries inside the AI route (which could time out), the application separates concerns:

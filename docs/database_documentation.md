@@ -19,7 +19,7 @@ This table acts as the ledger for every document verification attempt.
 | `upload_time` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Timestamp of the transaction. |
 | `verified_by` | `UUID` | `FK -> auth.users.id` | The operator who ran the check. |
 | `verified_by_email` | `TEXT` | `NULL` | Cached email for faster dashboard rendering. |
-| `verification_details` | `JSONB` | `NULL` | Complete raw JSON breakdown from OpenAI. |
+| `verification_details` | `JSONB` | `NULL` | Complete raw JSON breakdown from Dual-Pipeline AI engine. |
 
 ### Table: `auth.users`
 Managed entirely by Supabase GoTrue. Stores operator emails, encrypted passwords, and RBAC (Role Based Access Control) in the `raw_user_meta_data` JSONB column (e.g., `{"role": "super_admin"}`).

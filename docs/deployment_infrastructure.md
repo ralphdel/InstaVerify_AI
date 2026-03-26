@@ -13,7 +13,7 @@ InstaVerify-AI utilizes a stateless edge deployment model, meaning there is no p
 graph LR
     DNS[Vercel Edge Network] --> Frontend[Vercel Serverless Functions]
     Frontend --> Supabase[(Supabase Hosted Database)]
-    Frontend --> OpenAI[(OpenAI API API)]
+    Frontend --> AI[(Gemini & OpenAI API)]
     Frontend --> Resend[(Resend Email API)]
 ```
 
@@ -32,7 +32,8 @@ NEXT_PUBLIC_SUPABASE_URL=https://[YOUR_PROJECT_ID].supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 SUPABASE_SERVICE_ROLE_KEY=eyJ...
 
-# OpenAI Configuration
+# AI Models Configuration
+GEMINI_API_KEY=AIzaSy...
 OPENAI_API_KEY=sk-...
 
 # Application Base URL (Required for auth redirects)

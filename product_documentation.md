@@ -41,6 +41,7 @@ Regular administrators focus on the core verification tasks.
 Super Admins can use the **Admin Filter** dropdown on the main dashboard to switch between viewing all global submissions or focusing on a specific team member's activity.
 
 ### Real-Time Verification
+- **Dual-Pipeline AI Engine**: Documents are processed by Google Gemini 2.5 Flash for primary forensic validation (including advanced CAC text OCR and utility bill calculation), seamlessly falling back to OpenAI GPT-4o if rate-limited.
 - **Submission History**: A detailed table of all documents processed, including status badges (Pending, Verified, Rejected).
 - **Speed**: Optimized for fast data retrieval and responsive UI transitions.
 

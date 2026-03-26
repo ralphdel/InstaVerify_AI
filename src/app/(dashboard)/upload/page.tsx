@@ -179,6 +179,7 @@ export default function UploadPage() {
   };
 
   const handleProcessingComplete = () => {
+    router.refresh();
     if (submissionData && !submissionData.startsWith('TEMP-')) {
       router.push(`/report/${submissionData}`);
     } else {

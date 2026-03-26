@@ -18,8 +18,8 @@ InstaVerify-AI is built using an opinionated, modern TS/React stack designed for
 - **Analytics:** Vercel Analytics (Optional)
 
 ## Artificial Intelligence
-- **Model:** OpenAI `gpt-4o` (GPT-4 Vision)
-- **Integration:** Official `openai` npm package
+- **Model:** Google Gemini 2.5 Flash (Primary) & OpenAI `gpt-4o` (Fallback)
+- **Integration:** Official `@google/genai` and `openai` npm packages
 - **Prompting Strategy:** Structured JSON enforcement with deterministic Markdown removal.
 
 ## Communications

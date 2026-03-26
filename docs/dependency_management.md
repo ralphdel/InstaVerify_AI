@@ -10,7 +10,8 @@ The application dependencies are managed via npm. Below is the audited breakdown
 | `react` & `react-dom` | UI component library. |
 | `@supabase/ssr` | Secure cookie-based authentication hooks for Next.js Server Components. |
 | `@supabase/supabase-js` | The Supabase Javascript Client SDK for database operations. |
-| `openai` | Official OpenAI SDK for interfacing with the external GPT-4o Vision API endpoint. |
+| `@google/genai` | Official Google SDK for routing verification models through Gemini 2.5 Flash API endpoint. |
+| `openai` | Official OpenAI SDK for interfacing with the external GPT-4o Vision API endpoint as a fallback. |
 | `resend` | Node SDK for sending transactional emails (Access Requests). |
 | `lucide-react` | Scalable SVG icon library. |
 | `clsx` & `tailwind-merge` | Utility libraries for dynamically constructing Tailwind classes without layout collisions. |
