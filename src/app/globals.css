@@ -131,3 +131,52 @@
     @apply font-sans;
   }
 }
+
+/* ── Landing page shared utilities ── */
+.lp-section {
+  padding: 96px 24px;
+}
+.lp-container {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.lp-label {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: #F1F5F9;
+  border: 1px solid #E2E8F0;
+  border-radius: 20px;
+  padding: 5px 14px;
+}
+.lp-h2 {
+  font-size: clamp(26px, 4vw, 38px);
+  font-weight: 800;
+  color: #0F172A;
+  letter-spacing: -0.8px;
+  margin: 0 0 12px;
+  line-height: 1.15;
+}
+.lp-sub {
+  font-size: 16px;
+  color: #64748B;
+  line-height: 1.65;
+  margin: 0;
+  max-width: 540px;
+}
+
+/* ── Mobile responsiveness ── */
+html, body {
+  overflow-x: hidden;
+}
+
+@media (max-width: 640px) {
+  .lp-section {
+    padding: 64px 16px;
+  }
+  .lp-h2 {
+    font-size: clamp(22px, 5vw, 32px);
+  }
+}

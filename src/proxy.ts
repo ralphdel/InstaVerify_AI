@@ -8,11 +8,17 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
+     * Only run on routes that need auth protection:
+     * - /dashboard (and sub-routes)
+     * - /upload
+     * - /report (and sub-routes)
+     * - /login (to redirect already-authenticated users)
+     * - /auth (password flows)
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/dashboard/:path*',
+    '/upload/:path*',
+    '/report/:path*',
+    '/login',
+    '/auth/:path*',
   ],
 };
